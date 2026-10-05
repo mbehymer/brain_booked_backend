@@ -1,0 +1,210 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  TUTOR
+}
+
+enum TeachingFormat {
+  ONLINE
+  IN_PERSON
+  BOTH
+}
+
+enum SessionFormat {
+  ONLINE
+  IN_PERSON
+}
+
+enum GradeLevel {
+  ELEMENTARY
+  MIDDLE_SCHOOL
+  HIGH_SCHOOL
+  COLLEGE
+  ADULT
+}
+
+enum Weekday {
+  MON
+  TUE
+  WED
+  THU
+  FRI
+  SAT
+  SUN
+}
+
+enum SessionStatus {
+  UPCOMING
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         Role
+  name         String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tutorProfile TutorProfile?
+
+  studentSessions      Session[]      @relation("StudentSessions")
+  studentReviews       Review[]       @relation("StudentReviews")
+  studentConversations Conversation[] @relation("StudentConversations")
+  sentMessages         Message[]      @relation("SentMessages")
+}
+
+model TutorProfile {
+  id               String         @id @default(cuid())
+  userId           String         @unique
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  photo            String         @default("")
+  tagline          String         @default("")
+  bio              String         @default("")
+  education        String[]       @default([])
+  certifications   String[]       @default([])
+  subjects         String[]       @default([])
+  gradeLevels      GradeLevel[]   @default([])
+  hourlyRate       Float          @default(0)
+  format           TeachingFormat @default(ONLINE)
+  location         String?
+  introVideoUrl    String?
+  yearsExperience  Int            @default(0)
+  responseTime     String         @default("")
+  languages        String[]       @default([])
+  timezone         String         @default("America/Chicago")
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  availability AvailabilitySlot[]
+  timeOff      TimeOff[]
+  pricingTiers PricingTier[]
+  reviews      Review[]
+  sessions     Session[]           @relation("TutorSessions")
+  conversations Conversation[]
+
+  @@index([format])
+}
+
+model AvailabilitySlot {
+  id       String       @id @default(cuid())
+  tutorId  String
+  tutor    TutorProfile @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  day      Weekday
+  start    String
+  end      String
+
+  @@index([tutorId])
+}
+
+model TimeOff {
+  id      String       @id @default(cuid())
+  tutorId String
+  tutor   TutorProfile @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  label   String
+  start   String
+  end     String
+
+  @@index([tutorId])
+}
+
+model PricingTier {
+  id          String       @id @default(cuid())
+  tutorId     String
+  tutor       TutorProfile @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  label       String
+  durationMins Int
+  rate        Float
+
+  @@index([tutorId])
+}
+
+model Review {
+  id        String       @id @default(cuid())
+  tutorId   String
+  tutor     TutorProfile @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  studentId String
+  student   User         @relation("StudentReviews", fields: [studentId], references: [id], onDelete: Cascade)
+  sessionId String?      @unique
+  session   Session?     @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  rating    Int
+  comment   String
+  date      DateTime     @default(now())
+
+  @@unique([tutorId, studentId])
+  @@index([tutorId])
+}
+
+model Session {
+  id           String        @id @default(cuid())
+  tutorId      String
+  tutor        TutorProfile  @relation("TutorSessions", fields: [tutorId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      User          @relation("StudentSessions", fields: [studentId], references: [id], onDelete: Cascade)
+  subject      String
+  date         String
+  time         String
+  durationMins Int
+  status       SessionStatus @default(UPCOMING)
+  format       SessionFormat
+  notes        String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  homework HomeworkItem[]
+  review   Review?
+
+  @@index([tutorId, date])
+  @@index([studentId])
+}
+
+model HomeworkItem {
+  id         String   @id @default(cuid())
+  sessionId  String
+  session    Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  fileName   String
+  filePath   String
+  mimeType   String
+  sizeBytes  Int
+  uploadedAt DateTime @default(now())
+  feedback   String?
+
+  @@index([sessionId])
+}
+
+model Conversation {
+  id        String       @id @default(cuid())
+  studentId String
+  student   User         @relation("StudentConversations", fields: [studentId], references: [id], onDelete: Cascade)
+  tutorId   String
+  tutor     TutorProfile @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+
+  messages Message[]
+
+  @@unique([studentId, tutorId])
+  @@index([tutorId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  senderRole     Role
+  text           String
+  timestamp      DateTime     @default(now())
+
+  @@index([conversationId])
+}

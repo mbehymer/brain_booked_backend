@@ -1,0 +1,9 @@
+node_modules
+dist
+.env
+uploads/photos/*
+uploads/homework/*
+!uploads/photos/.gitkeep
+!uploads/homework/.gitkeep
+.git
+*.log
